@@ -222,10 +222,7 @@ pub(super) fn validate(config: &Config) -> Result<ValidatedConfig<'_>, Error> {
         // The find() is quadratic time in the limit, but we don't expect too
         // many types — maybe a handful.
         match types.iter().find(|t| t.name == ty.name) {
-            Some(existing)
-                if existing.path.trim_start_matches("::")
-                    == ty.path.trim_start_matches("::") =>
-            {
+            Some(existing) if existing.same_path(&ty) => {
                 errors.push(ConfigError::DuplicateType { path: ty.path });
             }
             Some(existing) => errors.push(ConfigError::DuplicateTypeName {
@@ -380,6 +377,14 @@ impl TargetType {
             .collect();
         let path = format!("{leading_colon}{}", segments.join("::"));
         Ok(Self { name: TypeName::from_ident(&last.ident), path })
+    }
+
+    /// Returns true if `self` and `other` are lexically the same path.
+    ///
+    /// In particular, handles `a::B` vs `::a::B`.
+    fn same_path(&self, other: &TargetType) -> bool {
+        self.path.trim_start_matches("::")
+            == other.path.trim_start_matches("::")
     }
 }
 
