@@ -1,4 +1,4 @@
-invalid configuration (7 problems):
+invalid configuration (23 problems):
   - crate root `` doesn't name a file: expected a path like `../my-crate/src/lib.rs`
   - invalid type path `not a path`: failed to parse as a path: unexpected token
   - invalid type path `a::Wrapper<u8>`: generic arguments aren't supported
@@ -6,3 +6,19 @@ invalid configuration (7 problems):
   - `a::DataStore` is configured more than once
   - `a::DataStore` and `b::DataStore` both end in `DataStore`, and impl blocks are matched by that name alone, so they can't be told apart
   - `::up::S` is configured more than once
+  - `skip_method("unconfigured::Type", "f")`: `unconfigured::Type` wasn't passed to add_async_inherent_methods, so pass it there too, or fix the type path
+  - `skip_method("not a path", "f")` has an invalid type path: failed to parse as a path: unexpected token
+  - `skip_method("a::Wrapper<u8>", "f")` has an invalid type path: generic arguments aren't supported
+  - `skip_method("DataStore", "f")`: `DataStore` wasn't passed to add_async_inherent_methods, but `a::DataStore` was, so pass `a::DataStore` here instead
+  - `skip_method("S", "not an identifier")` has an invalid method name: pass the name alone, like `silo_delete_internal` or `r#type`
+  - `skip_method("S", "not an identifier")`: `S` wasn't passed to add_async_inherent_methods, but `up::S` was, so pass `up::S` here instead
+  - `skip_method("up::S", "not an identifier")` has an invalid method name: pass the name alone, like `silo_delete_internal` or `r#type`
+  - `skip_method("up::S", "self")` has an invalid method name: pass the name alone, like `silo_delete_internal` or `r#type`
+  - `skip_method("up::S", "crate")` has an invalid method name: pass the name alone, like `silo_delete_internal` or `r#type`
+  - `skip_method("up::S", "super")` has an invalid method name: pass the name alone, like `silo_delete_internal` or `r#type`
+  - `skip_method("up::S", "Self")` has an invalid method name: pass the name alone, like `silo_delete_internal` or `r#type`
+  - `skip_method("up::S", "_")` has an invalid method name: pass the name alone, like `silo_delete_internal` or `r#type`
+  - `skip_method("up::S", "")` has an invalid method name: pass the name alone, like `silo_delete_internal` or `r#type`
+  - `skip_method("up::S", " g ")` has an invalid method name: pass the name alone, like `silo_delete_internal` or `r#type`
+  - `skip_method("::up::S", "g")` is a duplicate of an earlier skip_method call for the same method, so remove one of them
+  - `skip_method("up::S", "r#type")` is a duplicate of an earlier skip_method call for the same method, so remove one of them

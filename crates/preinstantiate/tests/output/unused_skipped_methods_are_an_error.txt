@@ -1,0 +1,12 @@
+9 skip_method calls have no effect in the crate at src/lib.rs, so fix or remove each one:
+  - `dq::DataStore::cfg_split`: already left out (impl block has a cfg or cfg_attr)
+  - `dq::DataStore::crate_visible`: no `pub async fn` with this name was found in an inherent impl block of the type
+  - `dq::DataStore::generic`: already left out (has type or const generics)
+  - `dq::DataStore::hidden`: no `pub async fn` with this name was found in an inherent impl block of the type
+  - `dq::DataStore::missing`: no `pub async fn` with this name was found in an inherent impl block of the type
+  - `dq::DataStore::not_async`: no `pub async fn` with this name was found in an inherent impl block of the type
+  - `dq::DataStore::private`: no `pub async fn` with this name was found in an inherent impl block of the type
+  - `dq::DataStore::trait_method`: no `pub async fn` with this name was found in an inherent impl block of the type
+  - `dq::DataStore::u`: already left out (is unsafe)
+These weren't analyzed, so methods in them aren't seen:
+  - src/lib.rs: mod tests: has a cfg or cfg_attr

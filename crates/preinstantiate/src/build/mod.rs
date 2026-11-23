@@ -12,6 +12,7 @@ mod imp;
 mod tests;
 
 pub use imp::{
-    Config, ConfigError, Error, InvalidShardError, ReadError, ShardIndex,
-    TypePathError, run_build_script, run_build_script_or_exit,
+    Config, ConfigError, Error, InvalidShardError, MethodName, ReadError,
+    ShardIndex, TypePathError, UnusedSkippedMethod, UnusedSkippedMethodKind,
+    run_build_script, run_build_script_or_exit,
 };
