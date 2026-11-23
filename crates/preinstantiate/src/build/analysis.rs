@@ -215,7 +215,10 @@ pub(super) fn validate(config: &Config) -> Result<ValidatedConfig<'_>, Error> {
         let ty = match TargetType::parse(ty_path) {
             Ok(ty) => ty,
             Err(error) => {
-                errors.push(error);
+                errors.push(ConfigError::InvalidTypePath {
+                    path: ty_path.clone(),
+                    error,
+                });
                 continue;
             }
         };
@@ -360,10 +363,8 @@ struct TargetType {
 }
 
 impl TargetType {
-    fn parse(ty_path: &str) -> Result<Self, ConfigError> {
-        let parsed = parse_type_path(ty_path).map_err(|error| {
-            ConfigError::InvalidTypePath { path: ty_path.to_owned(), error }
-        })?;
+    fn parse(ty_path: &str) -> Result<Self, TypePathError> {
+        let parsed = parse_type_path(ty_path)?;
         let last = parsed
             .segments
             .last()
