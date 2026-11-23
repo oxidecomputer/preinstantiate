@@ -428,28 +428,18 @@ impl fmt::Display for Error {
                 write_error_list(f, errors)
             }
             Error::TypesNotFound { crate_root, types, unanalyzed } => {
-                let types = types
-                    .iter()
-                    .map(|ty| format!("`{ty}`"))
-                    .collect::<Vec<_>>()
-                    .join(", ");
                 write!(
                     f,
                     "no inherent impl blocks found in the crate at \
-                     {crate_root} for {types}: check the type paths and the \
-                     crate root (impl blocks are matched by the type's own \
-                     name, not by a name it's re-exported as)"
+                     {crate_root} for "
                 )?;
-                if !unanalyzed.is_empty() {
-                    f.write_str(
-                        ". These weren't analyzed, so impl blocks in them \
-                         aren't seen:",
-                    )?;
-                    for item in unanalyzed {
-                        write!(f, "\n  - {item}")?;
-                    }
-                }
-                Ok(())
+                write_backticked_list(f, types)?;
+                f.write_str(
+                    ": check the type paths and the crate root (impl blocks \
+                     are matched by the type's own name, not by a name it's \
+                     re-exported as)",
+                )?;
+                write_unanalyzed(f, unanalyzed, "impl blocks")
             }
             Error::UnknownOptLevel { value } => write!(
                 f,
@@ -473,6 +463,33 @@ impl std::error::Error for Error {
             | Error::UnknownOptLevel { .. } => None,
         }
     }
+}
+
+fn write_backticked_list(
+    f: &mut fmt::Formatter<'_>,
+    items: &[String],
+) -> fmt::Result {
+    for (index, item) in items.iter().enumerate() {
+        if index > 0 {
+            f.write_str(", ")?;
+        }
+        write!(f, "`{item}`")?;
+    }
+    Ok(())
+}
+
+fn write_unanalyzed(
+    f: &mut fmt::Formatter<'_>,
+    unanalyzed: &[String],
+    what: &str,
+) -> fmt::Result {
+    if !unanalyzed.is_empty() {
+        write!(f, ". These weren't analyzed, so {what} in them aren't seen:")?;
+        for item in unanalyzed {
+            write!(f, "\n  - {item}")?;
+        }
+    }
+    Ok(())
 }
 
 fn write_error_list<E>(f: &mut fmt::Formatter<'_>, errors: &[E]) -> fmt::Result
