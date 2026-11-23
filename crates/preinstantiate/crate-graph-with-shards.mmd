@@ -1,0 +1,15 @@
+flowchart RL
+    pre["preinstantiate<br/>(build feature)"]
+    store["nexus-db-queries"]
+    subgraph shards ["shard crates, built in parallel"]
+        direction TB
+        s0["shard 0"]
+        s1["shard 1"]
+        sn["shards 2 to 7"]
+    end
+    mid["about 10 intermediate crates"]
+    nexus["omicron-nexus<br/>reuses the shards' copies"]
+    s0 & s1 & sn -.-> pre
+    s0 & s1 & sn --> store
+    nexus --> mid --> store
+    nexus --> s0 & s1 & sn

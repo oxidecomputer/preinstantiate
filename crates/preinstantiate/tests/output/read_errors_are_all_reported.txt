@@ -1,0 +1,4 @@
+failed to read 3 source files:
+  - failed to read ../dq/src/a.rs: permission denied
+  - failed to read ../dq/src/b/mod.rs: permission denied
+  - failed to read ../dq/src/c/deep.rs: permission denied

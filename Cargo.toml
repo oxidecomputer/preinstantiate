@@ -1,0 +1,23 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "e2e-example/*"]
+
+[workspace.package]
+edition = "2024"
+license = "MPL-2.0"
+
+[workspace.dependencies]
+atomicwrites = "0.4.4"
+camino = "1.2.0"
+camino-tempfile = "1.4.1"
+e2e-shard-0 = { path = "e2e-example/e2e-shard-0" }
+e2e-shard-1 = { path = "e2e-example/e2e-shard-1" }
+e2e-store = { path = "e2e-example/e2e-store" }
+expectorate = "1.2.0"
+preinstantiate = { path = "crates/preinstantiate" }
+proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
+simple-mermaid = "0.2.0"
+syn = { version = "3.0.10", default-features = false, features = ["full", "parsing", "visit"] }
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(doc_cfg)'] }

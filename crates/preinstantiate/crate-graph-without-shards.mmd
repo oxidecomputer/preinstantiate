@@ -1,0 +1,7 @@
+flowchart RL
+    store["nexus-db-queries<br/>defines DataStore's<br/>async methods"]
+    mid["about 10 intermediate crates"]
+    nexus["omicron-nexus<br/>compiles every method body<br/>(741 futures)"]
+    nexus --> mid --> store
+    nexus --> store
+    style nexus stroke-width:3px

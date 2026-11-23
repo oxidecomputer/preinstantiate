@@ -1,0 +1,3 @@
+preinstantiated users.rs: e2e_store::DataStore::user_name
+preinstantiated users.rs: e2e_store::DataStore::type
+skipped users.rs: e2e_store::DataStore::user_with_extra: has type or const generics

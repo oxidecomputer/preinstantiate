@@ -1,0 +1,8 @@
+invalid configuration (7 problems):
+  - crate root `` doesn't name a file: expected a path like `../my-crate/src/lib.rs`
+  - invalid type path `not a path`: failed to parse as a path: unexpected token
+  - invalid type path `a::Wrapper<u8>`: generic arguments aren't supported
+  - invalid type path `a::crate::B`: has `crate` where it can't name the type: `crate`, `self` and `super` can only start a path, `super` can also follow `self` or `super`, none of them can follow a leading `::`, and `Self` doesn't exist in the generated code
+  - `a::DataStore` is configured more than once
+  - `a::DataStore` and `b::DataStore` both end in `DataStore`, and impl blocks are matched by that name alone, so they can't be told apart
+  - `::up::S` is configured more than once

@@ -1,0 +1,22 @@
+DataStore: ok
+crate::DataStore: ok
+self::DataStore: ok
+super::DataStore: ok
+super::super::DataStore: ok
+self::super::DataStore: ok
+::crate::A: invalid configuration (1 problem):
+  - invalid type path `::crate::A`: has `crate` where it can't name the type: `crate`, `self` and `super` can only start a path, `super` can also follow `self` or `super`, none of them can follow a leading `::`, and `Self` doesn't exist in the generated code
+::super::A: invalid configuration (1 problem):
+  - invalid type path `::super::A`: has `super` where it can't name the type: `crate`, `self` and `super` can only start a path, `super` can also follow `self` or `super`, none of them can follow a leading `::`, and `Self` doesn't exist in the generated code
+a::super::B: invalid configuration (1 problem):
+  - invalid type path `a::super::B`: has `super` where it can't name the type: `crate`, `self` and `super` can only start a path, `super` can also follow `self` or `super`, none of them can follow a leading `::`, and `Self` doesn't exist in the generated code
+crate::super::A: invalid configuration (1 problem):
+  - invalid type path `crate::super::A`: has `super` where it can't name the type: `crate`, `self` and `super` can only start a path, `super` can also follow `self` or `super`, none of them can follow a leading `::`, and `Self` doesn't exist in the generated code
+self::self::A: invalid configuration (1 problem):
+  - invalid type path `self::self::A`: has `self` where it can't name the type: `crate`, `self` and `super` can only start a path, `super` can also follow `self` or `super`, none of them can follow a leading `::`, and `Self` doesn't exist in the generated code
+super::self::A: invalid configuration (1 problem):
+  - invalid type path `super::self::A`: has `self` where it can't name the type: `crate`, `self` and `super` can only start a path, `super` can also follow `self` or `super`, none of them can follow a leading `::`, and `Self` doesn't exist in the generated code
+a::Self::B: invalid configuration (1 problem):
+  - invalid type path `a::Self::B`: has `Self` where it can't name the type: `crate`, `self` and `super` can only start a path, `super` can also follow `self` or `super`, none of them can follow a leading `::`, and `Self` doesn't exist in the generated code
+Self::DataStore: invalid configuration (1 problem):
+  - invalid type path `Self::DataStore`: has `Self` where it can't name the type: `crate`, `self` and `super` can only start a path, `super` can also follow `self` or `super`, none of them can follow a leading `::`, and `Self` doesn't exist in the generated code

@@ -1,0 +1,6 @@
+no inherent impl blocks found in the crate at src/lib.rs for `dq::DataStore`: check the type paths and the crate root (impl blocks are matched by the type's own name, not by a name it's re-exported as). These weren't analyzed, so impl blocks in them aren't seen:
+  - src/broken.rs: failed to parse at line 1, column 16: cannot parse string into token stream
+  - src/cfg_file.rs: file has an inner #![cfg], or a #![cfg_attr] that may expand to one
+  - src/holder_0.rs: mod holder_0::db: has a cfg or cfg_attr
+  - src/holder_1.rs: mod holder_1::db: has a cfg or cfg_attr
+  - src/lib.rs: mod missing: module file not found

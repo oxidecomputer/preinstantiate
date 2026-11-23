@@ -1,0 +1,3 @@
+preinstantiated lib.rs: e2e_store::DataStore::name
+preinstantiated orders.rs: e2e_store::DataStore::connect
+preinstantiated orders.rs: e2e_store::DataStore::order_total
