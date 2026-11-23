@@ -323,7 +323,7 @@ where
         .filter(|(index, _)| !matched_types.contains(index))
         .map(|(_, ty)| ty.path.clone())
         .collect();
-    if !unmatched.is_empty() {
+    let unanalyzed = || {
         let source_dir = config.source_dir;
         let mut unanalyzed: Vec<String> = unanalyzed_modules
             .iter()
@@ -335,10 +335,13 @@ where
             }))
             .collect();
         unanalyzed.sort();
+        unanalyzed
+    };
+    if !unmatched.is_empty() {
         return Err(Error::TypesNotFound {
             crate_root: config.crate_root.to_owned(),
             types: unmatched,
-            unanalyzed,
+            unanalyzed: unanalyzed(),
         });
     }
 
