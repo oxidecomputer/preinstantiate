@@ -3,7 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use super::imp::{
-    Config, ConfigError, Error, ReadError, ShardIndex, TypePathError,
+    Config, ConfigError, Error, MethodName, ReadError, ShardIndex,
+    TypePathError,
 };
 use crate::MAX_ARITY;
 use camino::{Utf8Path, Utf8PathBuf};
@@ -426,24 +427,6 @@ impl TypeName {
 
     fn into_string(self) -> String {
         self.0
-    }
-}
-
-/// A method name without a potential leading `r#`.
-///
-/// The generated code contains `r#{name}` for every method.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct MethodName(String);
-
-impl MethodName {
-    fn from_ident(ident: &syn::Ident) -> Self {
-        Self(ident.unraw().to_string())
-    }
-}
-
-impl fmt::Display for MethodName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
     }
 }
 
