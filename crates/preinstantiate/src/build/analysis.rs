@@ -24,7 +24,7 @@ pub(super) struct Analysis {
 pub(super) struct PreinstantiatedMethod {
     pub file: Utf8PathBuf,
     pub ty_path: String,
-    pub name: String,
+    pub name: MethodName,
     pub arity: usize,
     pub line: usize,
 }
@@ -45,7 +45,7 @@ impl fmt::Display for Skipped {
 pub(super) enum SkippedItem {
     CfgFile,
     Module { path: String, reason: ModuleSkipReason },
-    Method { ty_path: String, name: String, reason: MethodSkipReason },
+    Method { ty_path: String, name: MethodName, reason: MethodSkipReason },
 }
 
 impl fmt::Display for SkippedItem {
@@ -429,6 +429,24 @@ impl TypeName {
     }
 }
 
+/// A method name without a potential leading `r#`.
+///
+/// The generated code contains `r#{name}` for every method.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct MethodName(String);
+
+impl MethodName {
+    fn from_ident(ident: &syn::Ident) -> Self {
+        Self(ident.unraw().to_string())
+    }
+}
+
+impl fmt::Display for MethodName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 struct ModuleReader<'a, R> {
     source_dir: &'a Utf8Path,
     read: R,
@@ -652,7 +670,7 @@ impl<'a> ItemWalker<'a> {
             if sig.asyncness.is_none() {
                 continue;
             }
-            let name = sig.ident.unraw().to_string();
+            let name = MethodName::from_ident(&sig.ident);
             let reason = impl_skip.or_else(|| method_skip(method));
             match reason {
                 Some(reason) => self.record_skip(SkippedItem::Method {
