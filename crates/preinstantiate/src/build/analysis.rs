@@ -4,11 +4,15 @@
 
 use super::imp::{
     Config, ConfigError, Error, MethodName, ReadError, ShardIndex,
-    TypePathError,
+    SkippedMethodConfig, TypePathError, UnusedSkippedMethod,
+    UnusedSkippedMethodKind,
 };
 use crate::MAX_ARITY;
 use camino::{Utf8Path, Utf8PathBuf};
-use std::fmt;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt,
+};
 use syn::{ext::IdentExt, punctuated::Punctuated, visit::Visit};
 
 #[derive(Debug, Default)]
@@ -94,6 +98,7 @@ pub(super) enum MethodSkipReason {
     ImplTraitArgument,
     Unsafe,
     TooManyArguments(usize),
+    Configured,
 }
 
 impl fmt::Display for MethodSkipReason {
@@ -131,6 +136,9 @@ impl fmt::Display for MethodSkipReason {
                     "has {n} arguments including self, more than the \
                      maximum of {MAX_ARITY}"
                 )
+            }
+            MethodSkipReason::Configured => {
+                f.write_str("passed to skip_method")
             }
         }
     }
@@ -209,6 +217,7 @@ pub(super) fn validate(config: &Config) -> Result<ValidatedConfig<'_>, Error> {
     }
 
     let mut types: Vec<TargetType> = Vec::new();
+    let mut rejected_types: Vec<TargetType> = Vec::new();
     if config.async_inherent_method_types.is_empty() {
         errors.push(ConfigError::NoTypes);
     }
@@ -229,12 +238,45 @@ pub(super) fn validate(config: &Config) -> Result<ValidatedConfig<'_>, Error> {
             Some(existing) if existing.same_path(&ty) => {
                 errors.push(ConfigError::DuplicateType { path: ty.path });
             }
-            Some(existing) => errors.push(ConfigError::DuplicateTypeName {
-                name: ty.name.into_string(),
-                first: existing.path.clone(),
-                second: ty.path,
-            }),
+            Some(existing) => {
+                errors.push(ConfigError::DuplicateTypeName {
+                    name: ty.name.clone().into_string(),
+                    first: existing.path.clone(),
+                    second: ty.path.clone(),
+                });
+                rejected_types.push(ty);
+            }
             None => types.push(ty),
+        }
+    }
+
+    for skipped_method in &config.skipped_methods {
+        // Check both the method and the type name at the same time so we report
+        // as many errors as possible.
+        let name = MethodName::parse(&skipped_method.name);
+        if name.is_none() {
+            errors.push(ConfigError::InvalidSkippedMethodName {
+                ty_path: skipped_method.ty_path.clone(),
+                name: skipped_method.name.clone(),
+            });
+        }
+        match find_skipped_method_type(
+            &mut types,
+            &rejected_types,
+            skipped_method,
+        ) {
+            SkippedMethodType::Configured(target) => {
+                if let Some(name) = name
+                    && !target.skipped_methods.insert(name)
+                {
+                    errors.push(ConfigError::DuplicateSkippedMethod {
+                        ty_path: skipped_method.ty_path.clone(),
+                        name: skipped_method.name.clone(),
+                    });
+                }
+            }
+            SkippedMethodType::RejectedType => {}
+            SkippedMethodType::Invalid(error) => errors.push(error),
         }
     }
 
@@ -269,7 +311,7 @@ where
     };
     let mut analysis = Analysis::default();
     let mut progress: Vec<TypeProgress> =
-        config.types.iter().map(|_| TypeProgress::new()).collect();
+        config.types.iter().map(TypeProgress::new).collect();
     let mut unanalyzed_modules: Vec<Skipped> = Vec::new();
     let mut stack =
         Vec::from([PendingModule::Root(Utf8PathBuf::from(config.root_file))]);
@@ -350,6 +392,51 @@ where
         });
     }
 
+    // Check for skip_method calls that have no effect.
+    let unused_skipped_methods: Vec<UnusedSkippedMethod> = config
+        .types
+        .iter()
+        .zip(&progress)
+        .flat_map(|(ty, type_progress)| {
+            let ty_path = &ty.path;
+            type_progress.skipped_methods.iter().filter_map(
+                move |(name, usage)| {
+                    let kind = match usage {
+                        SkippedMethodUsage::Unseen => {
+                            UnusedSkippedMethodKind::NotFound
+                        }
+                        SkippedMethodUsage::Redundant(reason) => {
+                            UnusedSkippedMethodKind::AlreadyLeftOut {
+                                reason: reason.to_string(),
+                            }
+                        }
+                        SkippedMethodUsage::Used => return None,
+                    };
+                    Some(UnusedSkippedMethod {
+                        ty_path: ty_path.clone(),
+                        name: name.clone(),
+                        kind,
+                    })
+                },
+            )
+        })
+        .collect();
+    if !unused_skipped_methods.is_empty() {
+        // The set of unanalyzed modules is only helpful when it helps explain
+        // why a method wasn't found.
+        let any_not_found =
+            unused_skipped_methods.iter().any(|method| match method.kind {
+                UnusedSkippedMethodKind::NotFound => true,
+                UnusedSkippedMethodKind::AlreadyLeftOut { .. } => false,
+            });
+        let unanalyzed = if any_not_found { unanalyzed() } else { Vec::new() };
+        return Err(Error::UnusedSkippedMethods {
+            crate_root: config.crate_root.to_owned(),
+            methods: unused_skipped_methods,
+            unanalyzed,
+        });
+    }
+
     // Sorting by file and then by line ensures that the order of generated
     // calls matches the source.
     analysis
@@ -361,10 +448,69 @@ where
     Ok(analysis)
 }
 
+enum SkippedMethodType<'a> {
+    /// The type was passed to `add_async_inherent_methods`. The method can be
+    /// recorded as skipped for that type.
+    Configured(&'a mut TargetType),
+    /// The type was parsed but then rejected.
+    ///
+    /// For example, suppose that both `a::DataStore` and `b::DataStore` are
+    /// provided to `add_async_inherent_methods`. They end in the same name, so
+    /// `b::DataStore` is rejected, and that's already reported as an error. A
+    /// `skip_method("b::DataStore")` call isn't wrong in itself, so we don't
+    /// report a second error for it.
+    RejectedType,
+    /// The type path failed to parse, or wasn't passed to
+    /// `add_async_inherent_methods`.
+    Invalid(ConfigError),
+}
+
+/// Looks up the type path passed to `skip_method` among the type paths passed
+/// to `add_async_inherent_methods`.
+fn find_skipped_method_type<'a>(
+    types: &'a mut [TargetType],
+    rejected_types: &[TargetType],
+    skipped_method: &SkippedMethodConfig,
+) -> SkippedMethodType<'a> {
+    let ty = match TargetType::parse(&skipped_method.ty_path) {
+        Ok(ty) => ty,
+        Err(error) => {
+            return SkippedMethodType::Invalid(
+                ConfigError::InvalidSkippedMethodTypePath {
+                    ty_path: skipped_method.ty_path.clone(),
+                    name: skipped_method.name.clone(),
+                    error,
+                },
+            );
+        }
+    };
+    if rejected_types.iter().any(|t| t.same_path(&ty)) {
+        return SkippedMethodType::RejectedType;
+    }
+    // We look up an index, then borrow `types[index]` mutably, rather than
+    // calling `iter_mut().find()`. This is for borrow checker reasons.
+    if let Some(index) = types.iter().position(|t| t.same_path(&ty)) {
+        return SkippedMethodType::Configured(&mut types[index]);
+    }
+    let error = match types.iter().find(|t| t.name == ty.name) {
+        Some(configured) => ConfigError::SkippedMethodTypePathMismatch {
+            ty_path: skipped_method.ty_path.clone(),
+            name: skipped_method.name.clone(),
+            configured: configured.path.clone(),
+        },
+        None => ConfigError::SkippedMethodForUnconfiguredType {
+            ty_path: skipped_method.ty_path.clone(),
+            name: skipped_method.name.clone(),
+        },
+    };
+    SkippedMethodType::Invalid(error)
+}
+
 #[derive(Debug)]
 struct TargetType {
     name: TypeName,
     path: String,
+    skipped_methods: BTreeSet<MethodName>,
 }
 
 impl TargetType {
@@ -382,7 +528,11 @@ impl TargetType {
             .map(|segment| segment.ident.to_string())
             .collect();
         let path = format!("{leading_colon}{}", segments.join("::"));
-        Ok(Self { name: TypeName::from_ident(&last.ident), path })
+        Ok(Self {
+            name: TypeName::from_ident(&last.ident),
+            path,
+            skipped_methods: BTreeSet::new(),
+        })
     }
 
     /// Returns true if `self` and `other` are lexically the same path.
@@ -658,7 +808,23 @@ impl<'a> ItemWalker<'a> {
                 continue;
             }
             let name = MethodName::from_ident(&sig.ident);
-            let reason = impl_skip.or_else(|| method_skip(method));
+            // Just like for type matches, we record which skipped methods were
+            // seen in every file, including files that another shard is
+            // responsible for. For example:
+            //
+            // * `silo.rs` belongs to shard 1, and the config has
+            //   `skip_method(..., "silo_delete_internal")`.
+            // * If shard 0 only looked at its own files, it would never see
+            //   `silo_delete_internal`.
+            // * Shard 0's build would then fail with an error saying that the
+            //   skip_method call has no effect.
+            let other_reason = impl_skip.or_else(|| method_skip(method));
+            let usage =
+                self.progress[matched.index].skipped_methods.get_mut(&name);
+            let reason = match usage {
+                Some(usage) => usage.record(other_reason),
+                None => other_reason,
+            };
             match reason {
                 Some(reason) => self.record_skip(SkippedItem::Method {
                     ty_path: ty.path.clone(),
@@ -755,11 +921,19 @@ struct TypeProgress {
     /// Whether any inherent impl block for the type was found, in the files
     /// corresponding to any shard.
     matched: TypeMatch,
+    /// An entry for each method passed to `skip_method` for this type, saying
+    /// whether the `skip_method` call has had an effect so far.
+    skipped_methods: BTreeMap<MethodName, SkippedMethodUsage>,
 }
 
 impl TypeProgress {
-    fn new() -> Self {
-        Self { matched: TypeMatch::Unmatched }
+    fn new(ty: &TargetType) -> Self {
+        let skipped_methods = ty
+            .skipped_methods
+            .iter()
+            .map(|name| (name.clone(), SkippedMethodUsage::Unseen))
+            .collect();
+        Self { matched: TypeMatch::Unmatched, skipped_methods }
     }
 }
 
@@ -767,6 +941,40 @@ impl TypeProgress {
 enum TypeMatch {
     Unmatched,
     Matched,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum SkippedMethodUsage {
+    Unseen,
+    Redundant(MethodSkipReason),
+    Used,
+}
+
+impl SkippedMethodUsage {
+    fn record(
+        &mut self,
+        other_reason: Option<MethodSkipReason>,
+    ) -> Option<MethodSkipReason> {
+        match (other_reason, *self) {
+            (
+                None,
+                SkippedMethodUsage::Unseen
+                | SkippedMethodUsage::Redundant(_)
+                | SkippedMethodUsage::Used,
+            ) => {
+                *self = SkippedMethodUsage::Used;
+                Some(MethodSkipReason::Configured)
+            }
+            (Some(reason), SkippedMethodUsage::Unseen) => {
+                *self = SkippedMethodUsage::Redundant(reason);
+                Some(reason)
+            }
+            (
+                Some(reason),
+                SkippedMethodUsage::Redundant(_) | SkippedMethodUsage::Used,
+            ) => Some(reason),
+        }
+    }
 }
 
 struct MatchedType {

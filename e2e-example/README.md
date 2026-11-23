@@ -6,8 +6,8 @@ with a build script that reads another crate's source.
 This directory has:
 
 1. [**`e2e-store`**](e2e-store): The upstream crate. It defines `DataStore`,
-   whose public async methods are spread over a few modules. One method is
-   generic, so preinstantiate skips it.
+   whose public async methods are spread over a few modules. There are also
+   a few methods that are implicitly or explicitly skipped.
 2. [**`e2e-shard-0`**](e2e-shard-0) and [**`e2e-shard-1`**](e2e-shard-1):
    The shard crates. Each one has a build script that reads `e2e-store`'s
    source, picks out the methods in the files assigned to its shard, and

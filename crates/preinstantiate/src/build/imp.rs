@@ -16,6 +16,13 @@ pub struct Config {
     pub(super) crate_root: Utf8PathBuf,
     pub(super) shard: ShardIndex,
     pub(super) async_inherent_method_types: Vec<String>,
+    pub(super) skipped_methods: Vec<SkippedMethodConfig>,
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct SkippedMethodConfig {
+    pub(super) ty_path: String,
+    pub(super) name: String,
 }
 
 impl Config {
@@ -32,6 +39,7 @@ impl Config {
             crate_root: crate_root.into(),
             shard,
             async_inherent_method_types: Vec::new(),
+            skipped_methods: Vec::new(),
         }
     }
 
@@ -42,6 +50,42 @@ impl Config {
         S: Into<String>,
     {
         self.async_inherent_method_types.push(ty_path.into());
+        self
+    }
+
+    /// Excludes a method from pre-instantiation.
+    ///
+    /// This is helpful for methods that are `pub async` but cannot be
+    /// pre-instantiated for some reason. For example, a `pub async fn` whose
+    /// signature mentions a non-public type is accepted by rustc in its own
+    /// crate, but a reference to it is rejected within the shard's generated
+    /// code. To leave such a method out, call:
+    ///
+    /// ```rust,ignore
+    /// config.skip_method("nexus_db_queries::db::DataStore", "silo_delete_internal");
+    /// ```
+    ///
+    /// Errors if:
+    ///
+    /// * `ty_path` isn't one of the type paths passed to
+    ///   `add_async_inherent_methods`.
+    /// * `name` isn't a method name.
+    ///
+    /// When share-generics is on (e.g., in dev builds), the build script
+    /// also fails if:
+    ///
+    /// * The method isn't a `pub async fn` in one of the type's inherent impl
+    ///   blocks.
+    /// * `preinstantiate` already leaves the method out for another reason.
+    pub fn skip_method<T, N>(mut self, ty_path: T, name: N) -> Self
+    where
+        T: Into<String>,
+        N: Into<String>,
+    {
+        self.skipped_methods.push(SkippedMethodConfig {
+            ty_path: ty_path.into(),
+            name: name.into(),
+        });
         self
     }
 }
@@ -398,6 +442,11 @@ pub enum Error {
         types: Vec<String>,
         unanalyzed: Vec<String>,
     },
+    UnusedSkippedMethods {
+        crate_root: Utf8PathBuf,
+        methods: Vec<UnusedSkippedMethod>,
+        unanalyzed: Vec<String>,
+    },
     UnknownOptLevel {
         value: String,
     },
@@ -440,7 +489,35 @@ impl fmt::Display for Error {
                      are matched by the type's own name, not by a name it's \
                      re-exported as)",
                 )?;
-                write_unanalyzed(f, unanalyzed, "impl blocks")
+                write_unanalyzed(
+                    f,
+                    unanalyzed,
+                    "impl blocks",
+                    UnanalyzedLeadIn::SameLine,
+                )
+            }
+            Error::UnusedSkippedMethods { crate_root, methods, unanalyzed } => {
+                match methods.len() {
+                    1 => write!(
+                        f,
+                        "1 skip_method call has no effect in the crate at {crate_root}, \
+                         so fix or remove it:"
+                    )?,
+                    count => write!(
+                        f,
+                        "{count} skip_method calls have no effect in the crate at \
+                         {crate_root}, so fix or remove each one:"
+                    )?,
+                }
+                for method in methods {
+                    write!(f, "\n  - {method}")?;
+                }
+                write_unanalyzed(
+                    f,
+                    unanalyzed,
+                    "methods",
+                    UnanalyzedLeadIn::NewLine,
+                )
             }
             Error::UnknownOptLevel { value } => write!(
                 f,
@@ -461,6 +538,7 @@ impl std::error::Error for Error {
             Error::MissingEnv { .. }
             | Error::NonUtf8Env { .. }
             | Error::TypesNotFound { .. }
+            | Error::UnusedSkippedMethods { .. }
             | Error::UnknownOptLevel { .. } => None,
         }
     }
@@ -479,13 +557,24 @@ fn write_backticked_list(
     Ok(())
 }
 
+#[derive(Clone, Copy, Debug)]
+enum UnanalyzedLeadIn {
+    SameLine,
+    NewLine,
+}
+
 fn write_unanalyzed(
     f: &mut fmt::Formatter<'_>,
     unanalyzed: &[String],
     what: &str,
+    lead_in: UnanalyzedLeadIn,
 ) -> fmt::Result {
     if !unanalyzed.is_empty() {
-        write!(f, ". These weren't analyzed, so {what} in them aren't seen:")?;
+        match lead_in {
+            UnanalyzedLeadIn::SameLine => f.write_str(". ")?,
+            UnanalyzedLeadIn::NewLine => f.write_str("\n")?,
+        }
+        write!(f, "These weren't analyzed, so {what} in them aren't seen:")?;
         for item in unanalyzed {
             write!(f, "\n  - {item}")?;
         }
@@ -515,12 +604,26 @@ fn causes<'a>(
 /// A method name without a potential leading `r#`.
 ///
 /// The generated code contains `r#{name}` for every method.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct MethodName(String);
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MethodName(String);
 
 impl MethodName {
     pub(super) fn from_ident(ident: &syn::Ident) -> Self {
         Self(ident.unraw().to_string())
+    }
+
+    pub(super) fn parse(name: &str) -> Option<Self> {
+        let ident = syn::parse_str::<syn::Ident>(name)
+            .or_else(|_| syn::parse_str::<syn::Ident>(&format!("r#{name}")))
+            .ok()?;
+        let parsed = Self::from_ident(&ident);
+        // The string has to exactly match the identifier.
+        //
+        // * syn's parser also accepts surrounding whitespace or comments.
+        // * Without this check, `" f "` and `"f"` would both mean the method
+        //   `f`, and passing both to skip_method wouldn't look like a
+        //   duplicate.
+        (ident == name || name == parsed.0).then_some(parsed)
     }
 }
 
@@ -530,13 +633,84 @@ impl fmt::Display for MethodName {
     }
 }
 
+/// A skipped method that isn't used.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnusedSkippedMethod {
+    /// The type path as passed to `add_async_inherent_methods`.
+    pub ty_path: String,
+    /// The method name without `r#`.
+    pub name: MethodName,
+    /// The reason the skip method was unused.
+    pub kind: UnusedSkippedMethodKind,
+}
+
+/// The reason a `skip_method` call had no effect.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum UnusedSkippedMethodKind {
+    /// No `pub async fn` with this name was found in an inherent impl block of
+    /// the type.
+    NotFound,
+    /// Every such method was found, but is left out for a different reason, like
+    /// being unsafe.
+    AlreadyLeftOut { reason: String },
+}
+
+impl fmt::Display for UnusedSkippedMethod {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let method = format!("{}::{}", self.ty_path, self.name);
+        match &self.kind {
+            UnusedSkippedMethodKind::NotFound => write!(
+                f,
+                "`{method}`: no `pub async fn` with this name was found in \
+                 an inherent impl block of the type"
+            ),
+            UnusedSkippedMethodKind::AlreadyLeftOut { reason } => {
+                write!(f, "`{method}`: already left out ({reason})")
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ConfigError {
-    InvalidCrateRoot { path: Utf8PathBuf },
+    InvalidCrateRoot {
+        path: Utf8PathBuf,
+    },
     NoTypes,
-    InvalidTypePath { path: String, error: TypePathError },
-    DuplicateType { path: String },
-    DuplicateTypeName { name: String, first: String, second: String },
+    InvalidTypePath {
+        path: String,
+        error: TypePathError,
+    },
+    DuplicateType {
+        path: String,
+    },
+    DuplicateTypeName {
+        name: String,
+        first: String,
+        second: String,
+    },
+    InvalidSkippedMethodTypePath {
+        ty_path: String,
+        name: String,
+        error: TypePathError,
+    },
+    SkippedMethodTypePathMismatch {
+        ty_path: String,
+        name: String,
+        configured: String,
+    },
+    SkippedMethodForUnconfiguredType {
+        ty_path: String,
+        name: String,
+    },
+    InvalidSkippedMethodName {
+        ty_path: String,
+        name: String,
+    },
+    DuplicateSkippedMethod {
+        ty_path: String,
+        name: String,
+    },
 }
 
 impl fmt::Display for ConfigError {
@@ -563,6 +737,42 @@ impl fmt::Display for ConfigError {
                  blocks are matched by that name alone, so they can't be \
                  told apart"
             ),
+            ConfigError::SkippedMethodForUnconfiguredType { ty_path, name } => {
+                write!(
+                    f,
+                    "`skip_method({ty_path:?}, {name:?})`: `{ty_path}` wasn't \
+                     passed to add_async_inherent_methods, so pass it there \
+                     too, or fix the type path"
+                )
+            }
+            ConfigError::InvalidSkippedMethodTypePath {
+                ty_path, name, ..
+            } => write!(
+                f,
+                "`skip_method({ty_path:?}, {name:?})` has an invalid type path"
+            ),
+            ConfigError::SkippedMethodTypePathMismatch {
+                ty_path,
+                name,
+                configured,
+            } => write!(
+                f,
+                "`skip_method({ty_path:?}, {name:?})`: `{ty_path}` wasn't \
+                 passed to add_async_inherent_methods, but `{configured}` \
+                 was, so pass `{configured}` here instead"
+            ),
+            ConfigError::InvalidSkippedMethodName { ty_path, name } => write!(
+                f,
+                "`skip_method({ty_path:?}, {name:?})` has an invalid method \
+                 name: pass the name alone, like `silo_delete_internal` or \
+                 `r#type`"
+            ),
+            ConfigError::DuplicateSkippedMethod { ty_path, name } => write!(
+                f,
+                "`skip_method({ty_path:?}, {name:?})` is a duplicate of an \
+                 earlier skip_method call for the same method, so remove one \
+                 of them"
+            ),
         }
     }
 }
@@ -570,11 +780,18 @@ impl fmt::Display for ConfigError {
 impl std::error::Error for ConfigError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            ConfigError::InvalidTypePath { error, .. } => Some(error),
+            ConfigError::InvalidTypePath { error, .. }
+            | ConfigError::InvalidSkippedMethodTypePath { error, .. } => {
+                Some(error)
+            }
             ConfigError::InvalidCrateRoot { .. }
             | ConfigError::NoTypes
             | ConfigError::DuplicateType { .. }
-            | ConfigError::DuplicateTypeName { .. } => None,
+            | ConfigError::DuplicateTypeName { .. }
+            | ConfigError::SkippedMethodTypePathMismatch { .. }
+            | ConfigError::SkippedMethodForUnconfiguredType { .. }
+            | ConfigError::InvalidSkippedMethodName { .. }
+            | ConfigError::DuplicateSkippedMethod { .. } => None,
         }
     }
 }

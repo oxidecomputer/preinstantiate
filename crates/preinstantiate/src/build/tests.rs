@@ -539,11 +539,265 @@ fn config_errors_are_all_reported() {
         .add_async_inherent_methods("a::DataStore")
         .add_async_inherent_methods("b::DataStore")
         .add_async_inherent_methods("up::S")
-        .add_async_inherent_methods("::up::S");
+        .add_async_inherent_methods("::up::S")
+        // This shows two things:
+        //
+        // * No error is reported for `skip_method("b::DataStore", "f")`,
+        //   because `b::DataStore` ends in the same name as `a::DataStore`, and
+        //   that's already reported.
+        // * `skip_method("S", "not an identifier")` has both a bad type path
+        //   and a bad method name, and both are reported.
+        .skip_method("unconfigured::Type", "f")
+        .skip_method("not a path", "f")
+        .skip_method("a::Wrapper<u8>", "f")
+        .skip_method("b::DataStore", "f")
+        .skip_method("DataStore", "f")
+        .skip_method("S", "not an identifier")
+        .skip_method("up::S", "not an identifier")
+        .skip_method("up::S", "self")
+        .skip_method("up::S", "crate")
+        .skip_method("up::S", "super")
+        .skip_method("up::S", "Self")
+        .skip_method("up::S", "_")
+        .skip_method("up::S", "")
+        .skip_method("up::S", " g ")
+        .skip_method("up::S", "g")
+        .skip_method("::up::S", "g")
+        .skip_method("up::S", "type")
+        .skip_method("up::S", "r#type");
     let error = validate(&config).expect_err("the config is invalid");
     expectorate::assert_contents(
         "tests/output/config_errors_are_all_reported.txt",
         &error.to_string(),
+    );
+}
+
+#[test]
+fn skipped_methods() {
+    // This shows how method names passed to skip_method are matched:
+    //
+    // * `"r#type"` matches `pub async fn r#type`, and `"match"` matches
+    //   `pub async fn r#match`.
+    // * `u` is unsafe and isn't passed to skip_method, so the report gives "is
+    //   unsafe" as its reason.
+    // * `split` and `late` each have a second copy in a cfg'd impl block. The
+    //   cfg'd copy keeps the cfg reason, and the plain copy is reported as
+    //   passed to skip_method.
+    // * `late`'s cfg'd copy comes before its plain one, and `split`'s comes
+    //   after, which shows that the order doesn't matter.
+    let config = test_config(one_shard())
+        .skip_method("dq::DataStore", "b")
+        .skip_method("::dq::DataStore", "r#type")
+        .skip_method("dq::DataStore", "match")
+        .skip_method("dq::DataStore", "split")
+        .skip_method("dq::DataStore", "late");
+    let analysis = analyze_with(
+        &config,
+        &[(
+            "lib.rs",
+            r#"
+            #[cfg(test)]
+            impl DataStore {
+                pub async fn late(&self) {}
+            }
+            impl DataStore {
+                pub async fn a(&self) {}
+                pub async fn b(&self) {}
+                pub async fn r#type(&self) {}
+                pub async fn r#match(&self) {}
+                pub async unsafe fn u(&self) {}
+                pub async fn split(&self) {}
+                pub async fn late(&self) {}
+            }
+            #[cfg(test)]
+            impl DataStore {
+                pub async fn split(&self) {}
+            }
+            "#,
+        )],
+    )
+    .expect("analysis succeeded");
+    expectorate::assert_contents(
+        "tests/output/skipped_methods.txt",
+        &report_and_generated(&config, &analysis),
+    );
+}
+
+#[test]
+fn unused_skipped_methods_are_an_error() {
+    // This shows which skip_method calls are listed in the error:
+    //
+    // * `a` would otherwise be pre-instantiated, so `skip_method(..., "a")` has
+    //   an effect and isn't listed.
+    // * Each of the other methods passed to skip_method is either not a
+    //   `pub async fn` in an analyzed inherent impl block, or already left out
+    //   for another reason.
+    // * `hidden` is a `pub async fn`, but it's in a module the walk doesn't
+    //   read.
+    let config = test_config(one_shard())
+        .skip_method("dq::DataStore", "a")
+        .skip_method("dq::DataStore", "missing")
+        .skip_method("dq::DataStore", "private")
+        .skip_method("dq::DataStore", "crate_visible")
+        .skip_method("dq::DataStore", "not_async")
+        .skip_method("dq::DataStore", "trait_method")
+        .skip_method("dq::DataStore", "hidden")
+        .skip_method("dq::DataStore", "u")
+        .skip_method("dq::DataStore", "generic")
+        .skip_method("dq::DataStore", "cfg_split");
+    let error = analyze_with(
+        &config,
+        &[
+            (
+                "lib.rs",
+                "#[cfg(test)] mod tests; \
+                 impl DataStore { \
+                 pub async fn a(&self) {} \
+                 async fn private(&self) {} \
+                 pub(crate) async fn crate_visible(&self) {} \
+                 pub fn not_async(&self) {} \
+                 pub async unsafe fn u(&self) {} \
+                 pub async fn generic<T>(&self, t: T) {} \
+                 } \
+                 impl SomeTrait for DataStore { \
+                 async fn trait_method(&self) {} \
+                 } \
+                 #[cfg(unix)] impl DataStore { \
+                 pub async fn cfg_split(&self) {} \
+                 } \
+                 #[cfg(windows)] impl DataStore { \
+                 pub async fn cfg_split(&self) {} \
+                 }",
+            ),
+            ("tests.rs", "impl DataStore { pub async fn hidden(&self) {} }"),
+        ],
+    )
+    .expect_err("skip_method calls with no effect fail the analysis");
+    expectorate::assert_contents(
+        "tests/output/unused_skipped_methods_are_an_error.txt",
+        &error.to_string(),
+    );
+}
+
+#[test]
+fn already_left_out_error_omits_unanalyzed_modules() {
+    // This shows that when every method in the error was found, the error
+    // doesn't list modules that weren't analyzed.
+    //
+    // `u` is in `lib.rs` and is left out because it's unsafe, so `mod tests`
+    // has nothing to do with the error.
+    let config = test_config(one_shard()).skip_method("dq::DataStore", "u");
+    let error = analyze_with(
+        &config,
+        &[(
+            "lib.rs",
+            "#[cfg(test)] mod tests; \
+             impl DataStore { pub async unsafe fn u(&self) {} }",
+        )],
+    )
+    .expect_err("a skip_method call for a method that's already left out fails the analysis");
+    expectorate::assert_contents(
+        "tests/output/already_left_out_error_omits_unanalyzed_modules.txt",
+        &error.to_string(),
+    );
+}
+
+#[test]
+fn skipped_method_in_another_shards_file_is_used() {
+    // This shows that every shard records a skipped method as seen:
+    //
+    // * `f` is only in `only.rs`, and only one of the two shards is responsible
+    //   for that file.
+    // * The other shard's analysis still has to record `f` as seen. Otherwise,
+    //   that shard's build would fail with an error saying that
+    //   `skip_method(..., "f")` has no effect.
+    let sources = [
+        ("lib.rs", "mod only;"),
+        ("only.rs", "impl DataStore { pub async fn f(&self) {} }"),
+    ];
+    for shard in two_shards() {
+        let config = test_config(shard).skip_method("dq::DataStore", "f");
+        analyze_with(&config, &sources).expect(
+            "neither shard reports the skip_method call as having no effect",
+        );
+    }
+}
+
+#[test]
+fn skipped_methods_apply_to_one_type() {
+    // This shows that skip_method applies to one type.
+    //
+    // * Both types have a method `f`.
+    // * Only `Other::f` is passed to skip_method, so `DataStore::f` is still
+    //   pre-instantiated.
+    let config = test_config(one_shard())
+        .add_async_inherent_methods("dq::Other")
+        .skip_method("dq::Other", "f");
+    let analysis = analyze_with(
+        &config,
+        &[(
+            "lib.rs",
+            "impl DataStore { pub async fn f(&self) {} } \
+             impl Other { pub async fn f(&self) {} }",
+        )],
+    )
+    .expect("analysis succeeded");
+    expectorate::assert_contents(
+        "tests/output/skipped_methods_apply_to_one_type.txt",
+        &report_and_generated(&config, &analysis),
+    );
+}
+
+#[test]
+fn types_not_found_is_reported_before_unused_skipped_methods() {
+    // When a type isn't found, the crate root or a type path is usually wrong,
+    // so the error only says that. More specifically, we don't list
+    // `skip_method(..., "stale")` or the `skip_method` call for `dq::Missing`,
+    // since they would be noise until the type is detected.
+    let config = test_config(one_shard())
+        .add_async_inherent_methods("dq::Missing")
+        .skip_method("dq::DataStore", "stale")
+        .skip_method("dq::Missing", "f");
+    let error = analyze_with(
+        &config,
+        &[("lib.rs", "impl DataStore { pub async fn a(&self) {} }")],
+    )
+    .expect_err("a type with no inherent impl block fails the analysis");
+    expectorate::assert_contents(
+        "tests/output/types_not_found_is_reported_before_unused_skipped_methods.txt",
+        &error.to_string(),
+    );
+}
+
+#[test]
+fn unused_skipped_methods_are_reported_by_every_shard() {
+    // This shows that each shard's analysis takes every file into account, not
+    // only its own:
+    //
+    // * `u` and the cfg'd module are in files that different shards are
+    //   responsible for.
+    // * Both shards report the same error.
+    let owners = two_shards().map(|shard| module_owned_by(shard, "holder"));
+    let sources = [
+        ("lib.rs".to_owned(), format!("mod {}; mod {};", owners[0], owners[1])),
+        (
+            format!("{}.rs", owners[0]),
+            "impl DataStore { pub async unsafe fn u(&self) {} }".to_owned(),
+        ),
+        (format!("{}.rs", owners[1]), "#[cfg(test)] mod db;".to_owned()),
+    ];
+    let [message_0, message_1] = two_shards().map(|shard| {
+        let config = test_config(shard)
+            .skip_method("dq::DataStore", "u")
+            .skip_method("dq::DataStore", "missing");
+        analyze_with(&config, &sources)
+            .expect_err("skip_method calls with no effect fail the analysis")
+            .to_string()
+    });
+    assert_eq!(message_0, message_1, "both shards report the same error");
+    expectorate::assert_contents(
+        "tests/output/unused_skipped_methods_are_reported_by_every_shard.txt",
+        &message_0,
     );
 }
 
@@ -783,6 +1037,24 @@ fn build_script_validates_config_when_share_generics_is_off() {
         .expect_err("an invalid config fails even at opt-level 3");
     let Error::InvalidConfig(_) = error else {
         panic!("expected InvalidConfig, got {error:?}");
+    };
+}
+
+#[test]
+fn stale_skipped_method_is_only_caught_when_share_generics_is_on() {
+    // At opt-level 3 (which we use a proxy for share-generics), the build
+    // script doesn't analyze the source, so there's no way to tell that
+    // `skip_method(..., "missing")` is stale. The build has to succeed anyway.
+    let dirs = build_dirs("impl DataStore { pub async fn f(&self) {} }");
+    let config =
+        test_config(one_shard()).skip_method("dq::DataStore", "missing");
+    run_with_env(&config, &build_env(&dirs, OptLevel::O3)).expect(
+        "a stale skip_method call doesn't fail a build without analysis",
+    );
+    let error = run_with_env(&config, &build_env(&dirs, OptLevel::O0))
+        .expect_err("a stale skip_method call fails a build with analysis");
+    let Error::UnusedSkippedMethods { .. } = error else {
+        panic!("expected UnusedSkippedMethods, got {error:?}");
     };
 }
 

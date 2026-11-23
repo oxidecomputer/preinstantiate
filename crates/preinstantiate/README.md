@@ -227,6 +227,20 @@ conservative and skip over methods that:
 We don’t have to be perfect to realize the build time improvements — it is
 sufficient to instantiate the vast majority of async functions.
 
+### Skipping methods
+
+Some methods can’t be pre-instantiated for reasons that cannot be determined
+by a source-level analysis. For example, a `pub async fn` whose signature
+mentions a non-public type is accepted by the Rust compiler in the upstream
+crate, but it can’t be referred to within any of the shard crates. To skip
+such methods, use `Config::skip_method`:
+
+````rust,ignore
+Config::new("../../nexus-db-queries/src/lib.rs", shard)
+    .add_async_inherent_methods("nexus_db_queries::db::DataStore")
+    .skip_method("nexus_db_queries::db::DataStore", "silo_delete_internal")
+````
+
 ### Debugging
 
 To check whether `preinstantiate` is working as expected, pick a method and
