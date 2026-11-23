@@ -12,6 +12,9 @@ This directory has:
    The shard crates. Each one has a build script that reads `e2e-store`'s
    source, picks out the methods in the files assigned to its shard, and
    writes a `preinstantiate_async_fns` function that the crate `include!`s.
+   The shared configuration is defined in
+   [`preinstantiate_config.rs`](preinstantiate_config.rs) and is included
+   by each build script.
 3. [**`e2e-app`**](e2e-app): The downstream crate, which calls `DataStore`'s
    methods. It depends on both shard crates and names them with `use ... as
    _`, so that rustc loads them and share-generics can use the instances they

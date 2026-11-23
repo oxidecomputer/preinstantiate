@@ -139,18 +139,34 @@
 //! preinstantiate = { workspace = true, features = ["build"] }
 //! ```
 //!
-//! In each shard's build script, define the source files to do analysis on:
+//! Put the shared configuration in a file that each build script `include!`s.
+//! For example, with the shard crates in a `shards` directory:
 //!
 //! ```rust,ignore
+//! // shards/preinstantiate_config.rs
+//! fn config(shard: ShardIndex) -> Config {
+//!     Config::new("../../nexus-db-queries/src/lib.rs", shard)
+//!         .add_async_inherent_methods("nexus_db_queries::db::DataStore")
+//! }
+//! ```
+//!
+//! Each shard's build script then only says which shard it is:
+//!
+//! ```rust,ignore
+//! // shards/shard0/build.rs
 //! use preinstantiate::build::{Config, ShardIndex, run_build_script_or_exit};
+//!
+//! include!("../preinstantiate_config.rs");
 //!
 //! fn main() {
 //!     let shard = ShardIndex::new(0, 8).expect("shard 0 of 8 is valid");
-//!     let config = Config::new("../nexus-db-queries/src/lib.rs", shard)
-//!         .add_async_inherent_methods("nexus_db_queries::db::DataStore");
-//!     run_build_script_or_exit(&config);
+//!     run_build_script_or_exit(&config(shard));
 //! }
 //! ```
+//!
+//! Note that the `include!` path is relative to `build.rs`, but the crate root
+//! passed to `Config::new` is relative to each shard's own directory. This
+//! works out because every shard crate is at the same depth.
 //!
 //! `preinstantiate` will do a source analysis to find `pub async` methods
 //! defined on `DataStore` filtered to that shard, and write out a function
