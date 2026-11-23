@@ -8,7 +8,7 @@ use super::imp::{
 };
 use crate::MAX_ARITY;
 use camino::{Utf8Path, Utf8PathBuf};
-use std::{collections::BTreeSet, fmt};
+use std::fmt;
 use syn::{ext::IdentExt, punctuated::Punctuated, visit::Visit};
 
 #[derive(Debug, Default)]
@@ -268,7 +268,8 @@ where
         errors: Vec::new(),
     };
     let mut analysis = Analysis::default();
-    let mut matched_types = BTreeSet::new();
+    let mut progress: Vec<TypeProgress> =
+        config.types.iter().map(|_| TypeProgress::new()).collect();
     let mut unanalyzed_modules: Vec<Skipped> = Vec::new();
     let mut stack =
         Vec::from([PendingModule::Root(Utf8PathBuf::from(config.root_file))]);
@@ -303,7 +304,7 @@ where
             file_path: &source.path,
             ownership,
             analysis: &mut analysis,
-            matched_types: &mut matched_types,
+            progress: &mut progress,
             unanalyzed_modules: &mut unanalyzed_modules,
             child_modules: Vec::new(),
         };
@@ -320,9 +321,12 @@ where
     let unmatched: Vec<String> = config
         .types
         .iter()
-        .enumerate()
-        .filter(|(index, _)| !matched_types.contains(index))
-        .map(|(_, ty)| ty.path.clone())
+        .zip(&progress)
+        .filter(|(_, type_progress)| match type_progress.matched {
+            TypeMatch::Unmatched => true,
+            TypeMatch::Matched => false,
+        })
+        .map(|(ty, _)| ty.path.clone())
         .collect();
     let unanalyzed = || {
         let source_dir = config.source_dir;
@@ -556,7 +560,7 @@ struct ItemWalker<'a> {
     file_path: &'a Utf8Path,
     ownership: FileOwnership,
     analysis: &'a mut Analysis,
-    matched_types: &'a mut BTreeSet<usize>,
+    progress: &'a mut [TypeProgress],
     unanalyzed_modules: &'a mut Vec<Skipped>,
     child_modules: Vec<PendingModule>,
 }
@@ -624,7 +628,7 @@ impl<'a> ItemWalker<'a> {
         // Record whether this is a match before checking whether our shard is
         // responsible for the file. Otherwise a shard that owned none of a
         // type's impl blocks would wrongly report the type as not found.
-        self.matched_types.insert(matched.index);
+        self.progress[matched.index].matched = TypeMatch::Matched;
 
         let ty = &self.types[matched.index];
         let impl_skip = if has_cfg(&item_impl.attrs) {
@@ -744,6 +748,25 @@ impl<'a> ItemWalker<'a> {
             FileOwnership::OtherShard => {}
         }
     }
+}
+
+/// Intermediate progress for a type passed to `add_async_inherent_methods`.
+struct TypeProgress {
+    /// Whether any inherent impl block for the type was found, in the files
+    /// corresponding to any shard.
+    matched: TypeMatch,
+}
+
+impl TypeProgress {
+    fn new() -> Self {
+        Self { matched: TypeMatch::Unmatched }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum TypeMatch {
+    Unmatched,
+    Matched,
 }
 
 struct MatchedType {
