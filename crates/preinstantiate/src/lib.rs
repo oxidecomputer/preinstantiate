@@ -141,7 +141,7 @@
 //!
 //! In each shard's build script, define the source files to do analysis on:
 //!
-//! ```rust
+//! ```rust,ignore
 //! use preinstantiate::build::{Config, ShardIndex, run_build_script_or_exit};
 //!
 //! fn main() {
