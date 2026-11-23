@@ -47,7 +47,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        rust-version: [stable]
+        # 1.88 is the MSRV
+        rust-version: ["1.88", stable]
       fail-fast: false
     env:
       RUSTFLAGS: -D warnings

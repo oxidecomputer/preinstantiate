@@ -7,8 +7,8 @@
 //! themselves.
 //!
 //! In [Omicron](https://github.com/oxidecomputer/omicron), after an edit to a
-//! `nexus-db-queries` method, rebuilding `omicron-nexus` goes from around 25
-//! seconds to around 11. (This was measured with Rust 1.99.1 on a computer with
+//! `nexus-db-queries` method, rebuilding `omicron-nexus` goes from around 33
+//! seconds to around 13. (This was measured with Rust 1.99.1 on a computer with
 //! an AMD Ryzen 9 7950X processor running Linux.)
 //!
 //! # Motivation
@@ -273,6 +273,7 @@
 //!   opt-level 0, 1, `s`, and `z`, but not 2 or 3.
 
 #![cfg_attr(doc_cfg, feature(doc_cfg))]
+#![warn(missing_docs)]
 
 use std::{
     future::Future,
@@ -283,9 +284,30 @@ use std::{
 #[cfg(feature = "build")]
 pub mod build;
 
+macro_rules! arguments_noun {
+    (1) => {
+        "argument"
+    };
+    ($count:literal) => {
+        "arguments"
+    };
+}
+
 macro_rules! preinstantiate_async_fn_impls {
-    ($($name:ident($($arg:ident),*);)*) => {
+    ($($count:tt: $name:ident($($arg:ident),*);)*) => {
         $(
+            const _: () = assert!(
+                $count == <[&str]>::len(&[$(stringify!($arg)),*]),
+                concat!("wrong argument count for ", stringify!($name)),
+            );
+
+            #[doc = concat!(
+                "Pre-instantiate an async function with ",
+                $count,
+                " ",
+                arguments_noun!($count),
+                ".",
+            )]
             #[inline(never)]
             pub fn $name<F, Fut, $($arg),*>(_f: F)
             where
@@ -304,13 +326,13 @@ macro_rules! preinstantiate_async_fn_impls {
             }
         )*
 
-        /// The maxinum number of supported arguments for `preinstantiate`.
+        /// The maximum number of supported arguments for `preinstantiate`.
         ///
         /// A method with more than these many arguments will be ignored. As
         /// documented at the [crate level](crate), this is a conservative
         /// approximation that is fine.
         pub const MAX_ARITY: usize = {
-            let arities = [$(<[&str]>::len(&[$(stringify!($arg)),*])),*];
+            let arities: &[usize] = &[$($count),*];
             let mut max = 0;
             let mut i = 0;
             while i < arities.len() {
@@ -325,19 +347,21 @@ macro_rules! preinstantiate_async_fn_impls {
 }
 
 preinstantiate_async_fn_impls! {
-    preinstantiate_async_fn_0();
-    preinstantiate_async_fn_1(A1);
-    preinstantiate_async_fn_2(A1, A2);
-    preinstantiate_async_fn_3(A1, A2, A3);
-    preinstantiate_async_fn_4(A1, A2, A3, A4);
-    preinstantiate_async_fn_5(A1, A2, A3, A4, A5);
-    preinstantiate_async_fn_6(A1, A2, A3, A4, A5, A6);
-    preinstantiate_async_fn_7(A1, A2, A3, A4, A5, A6, A7);
-    preinstantiate_async_fn_8(A1, A2, A3, A4, A5, A6, A7, A8);
-    preinstantiate_async_fn_9(A1, A2, A3, A4, A5, A6, A7, A8, A9);
-    preinstantiate_async_fn_10(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
-    preinstantiate_async_fn_11(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
-    preinstantiate_async_fn_12(
+    0: preinstantiate_async_fn_0();
+    1: preinstantiate_async_fn_1(A1);
+    2: preinstantiate_async_fn_2(A1, A2);
+    3: preinstantiate_async_fn_3(A1, A2, A3);
+    4: preinstantiate_async_fn_4(A1, A2, A3, A4);
+    5: preinstantiate_async_fn_5(A1, A2, A3, A4, A5);
+    6: preinstantiate_async_fn_6(A1, A2, A3, A4, A5, A6);
+    7: preinstantiate_async_fn_7(A1, A2, A3, A4, A5, A6, A7);
+    8: preinstantiate_async_fn_8(A1, A2, A3, A4, A5, A6, A7, A8);
+    9: preinstantiate_async_fn_9(A1, A2, A3, A4, A5, A6, A7, A8, A9);
+    10: preinstantiate_async_fn_10(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
+    11: preinstantiate_async_fn_11(
+        A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11
+    );
+    12: preinstantiate_async_fn_12(
         A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12
     );
 }

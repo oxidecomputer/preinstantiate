@@ -3,8 +3,13 @@ name = "preinstantiate"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
-publish = false
+repository.workspace = true
+description = "Compile a crate's async functions ahead of time in separate crates, to speed up incremental builds"
+documentation = "https://docs.rs/preinstantiate"
 readme = "README.md"
+keywords = ["build", "compile-time", "async", "monomorphization", "share-generics"]
+categories = ["development-tools::build-utils"]
+rust-version.workspace = true
 
 [lints]
 workspace = true
@@ -12,6 +17,14 @@ workspace = true
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg=doc_cfg"]
+
+[package.metadata.release]
+pre-release-replacements = [
+    { file = "../../CHANGELOG.md", search = "Unreleased", replace = "[{{version}}]", min = 1 },
+    { file = "../../CHANGELOG.md", search = "ReleaseDate", replace = "{{date}}", min = 1 },
+    { file = "../../CHANGELOG.md", search = "<!-- next-header -->", replace = "<!-- next-header -->\n## Unreleased - ReleaseDate\n", exactly = 1 },
+    { file = "../../CHANGELOG.md", search = "<!-- next-url -->", replace = "<!-- next-url -->\n[{{version}}]: https://github.com/oxidecomputer/preinstantiate/releases/preinstantiate-{{version}}", exactly = 1 },
+]
 
 [features]
 build = ["dep:atomicwrites", "dep:camino", "dep:proc-macro2", "dep:syn"]

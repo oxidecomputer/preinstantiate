@@ -7,12 +7,15 @@
 //! This module includes support for configuring build scripts.
 
 mod analysis;
+mod errors;
 mod imp;
 #[cfg(test)]
 mod tests;
 
+pub use errors::{
+    ConfigError, Error, InvalidShardError, ReadError, TypePathError,
+    UnusedSkippedMethod, UnusedSkippedMethodKind,
+};
 pub use imp::{
-    Config, ConfigError, Error, InvalidShardError, MethodName, ReadError,
-    ShardIndex, TypePathError, UnusedSkippedMethod, UnusedSkippedMethodKind,
-    run_build_script, run_build_script_or_exit,
+    Config, MethodName, ShardIndex, run_build_script, run_build_script_or_exit,
 };
