@@ -8,6 +8,7 @@ use super::analysis::{
 use atomicwrites::{AtomicFile, OverwriteBehavior};
 use camino::{Utf8Path, Utf8PathBuf};
 use std::{fmt, fmt::Write as _, io::Write as _};
+use syn::ext::IdentExt;
 
 /// Configuration for a build script.
 #[derive(Clone, Debug)]
@@ -509,6 +510,24 @@ fn causes<'a>(
     error: &'a (dyn std::error::Error + 'static),
 ) -> impl Iterator<Item = &'a (dyn std::error::Error + 'static)> {
     std::iter::successors(error.source(), |cause| cause.source())
+}
+
+/// A method name without a potential leading `r#`.
+///
+/// The generated code contains `r#{name}` for every method.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct MethodName(String);
+
+impl MethodName {
+    pub(super) fn from_ident(ident: &syn::Ident) -> Self {
+        Self(ident.unraw().to_string())
+    }
+}
+
+impl fmt::Display for MethodName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
 }
 
 #[derive(Debug)]
