@@ -615,10 +615,6 @@ impl<'a> ItemWalker<'a> {
         // responsible for the file. Otherwise a shard that owned none of a
         // type's impl blocks would wrongly report the type as not found.
         self.matched_types.insert(matched.index);
-        match self.ownership {
-            FileOwnership::ThisShard => {}
-            FileOwnership::OtherShard => return,
-        }
 
         let ty = &self.types[matched.index];
         let impl_skip = if has_cfg(&item_impl.attrs) {
@@ -655,15 +651,13 @@ impl<'a> ItemWalker<'a> {
                     name,
                     reason,
                 }),
-                None => {
-                    self.analysis.preinstantiated.push(PreinstantiatedMethod {
-                        file: self.file_path.to_owned(),
-                        ty_path: ty.path.clone(),
-                        name,
-                        arity: sig.inputs.len(),
-                        line: sig.ident.span().start().line,
-                    })
-                }
+                None => self.record_preinstantiated(PreinstantiatedMethod {
+                    file: self.file_path.to_owned(),
+                    ty_path: ty.path.clone(),
+                    name,
+                    arity: sig.inputs.len(),
+                    line: sig.ident.span().start().line,
+                }),
             }
         }
     }
@@ -684,6 +678,15 @@ impl<'a> ItemWalker<'a> {
             SelfTypeArguments::Present
         };
         Some(MatchedType { index, arguments })
+    }
+
+    fn record_preinstantiated(&mut self, method: PreinstantiatedMethod) {
+        match self.ownership {
+            FileOwnership::ThisShard => {
+                self.analysis.preinstantiated.push(method)
+            }
+            FileOwnership::OtherShard => {}
+        }
     }
 
     fn record_skip(&mut self, item: SkippedItem) {
