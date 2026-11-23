@@ -43,8 +43,25 @@ associated with a type, like `DataStore::silo_delete`. It does not apply to
 `pub async` module-level (free) functions, which *are* generated at the
 place they’re defined. Based on [rust-lang/rust#143290] this doesn’t
 seem intentional, at least at first glance; someone in the Rust community
-could reasonably notice and fix this, making `preinstantiate` moot. So this
-crate has a bit of a fleeting nature. C’est la vie.
+could reasonably notice and fix this.
+
+What if this is fixed in `rustc`? Since it would mean code is generated
+within the crate, it’s a bit of a mixed bag.
+
+* If you aren’t using `preinstantiate`, it is definitely a win. Most people
+  aren’t.
+* If you *are* using `preinstantiate`, though, you lose roughly half the
+  build performance gain from it.
+
+In empirical testing against a patched `rustc`, the result is roughly the
+same as “In nexus-db-queries” in the build performance chart below. This
+makes sense because fixing this in `rustc` is roughly equivalent to that.
+
+The upshot of all this is that `preinstantiate` has a bit of a fleeting
+nature. This does expose a fairly deep structural problem in the Rust
+compiler, though, where there isn’t sufficient pipelining happening during
+the build. Maybe `preinstantiate` will add to the pressure to fix pipelining
+properly. Maybe it won’t. C’est la vie.
 
 </details>
 
@@ -58,7 +75,7 @@ which is generated towards the end of the build process within
 flowchart RL
     store["nexus-db-queries<br/>defines DataStore's<br/>async methods"]
     mid["about 10 intermediate crates"]
-    nexus["omicron-nexus<br/>compiles every method body<br/>(741 futures)"]
+    nexus["omicron-nexus<br/>compiles every method body<br/>(hundreds of futures)"]
     nexus --> mid --> store
     nexus --> store
     style nexus stroke-width:3px
@@ -142,8 +159,8 @@ gantt
 
 ## Usage
 
-We call `nexus-db-queries` the upstream crate, and the downstream crate such
-as `omicron-nexus` the downstream crate.
+We call `nexus-db-queries` the upstream crate, and `omicron-nexus` the
+downstream crate.
 
 First, for each shard, create a crate that depends on the upstream crate and
 on `preinstantiate`. Turn on the `build` feature for the build script:
