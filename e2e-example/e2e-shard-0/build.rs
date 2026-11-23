@@ -4,9 +4,9 @@
 
 use preinstantiate::build::{Config, ShardIndex, run_build_script_or_exit};
 
+include!("../preinstantiate_config.rs");
+
 fn main() {
     let shard = ShardIndex::new(0, 2).expect("shard 0 of 2 is valid");
-    let config = Config::new("../e2e-store/src/lib.rs", shard)
-        .add_async_inherent_methods("e2e_store::DataStore");
-    run_build_script_or_exit(&config);
+    run_build_script_or_exit(&config(shard));
 }
