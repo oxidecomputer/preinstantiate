@@ -345,7 +345,9 @@ fn shards_partition_files() {
             "shard {index} of {count} has no methods",
         );
         assert_eq!(analysis.problems, vec![]);
-        all.extend(analysis.preinstantiated.into_iter().map(|m| m.name));
+        all.extend(
+            analysis.preinstantiated.into_iter().map(|m| m.name.to_string()),
+        );
     }
     all.sort();
     let mut expected: Vec<String> = (0..50).map(|i| format!("f{i}")).collect();
