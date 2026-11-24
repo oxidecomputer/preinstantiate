@@ -128,7 +128,11 @@
 //! showing an almost 3x improvement:
 #![cfg_attr(
     feature = "doc-diagrams",
-    doc = include_str!("../edit-loop-timeline.svg")
+    doc = concat!(
+        "<div>\n",
+        include_str!("../edit-loop-timeline.svg"),
+        "</div>"
+    )
 )]
 #![cfg_attr(
     not(feature = "doc-diagrams"),
