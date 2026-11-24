@@ -5,6 +5,8 @@ members = ["crates/*", "e2e-example/*"]
 [workspace.package]
 edition = "2024"
 license = "MPL-2.0"
+repository = "https://github.com/oxidecomputer/preinstantiate"
+rust-version = "1.88"
 
 [workspace.dependencies]
 atomicwrites = "0.4.4"

@@ -2,10 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use super::imp::{
-    Config, ConfigError, Error, MethodName, ReadError, ShardIndex,
-    SkippedMethodConfig, TypePathError, UnusedSkippedMethod,
-    UnusedSkippedMethodKind,
+use super::{
+    errors::{
+        ConfigError, Error, ReadError, TypePathError, UnusedSkippedMethod,
+        UnusedSkippedMethodKind,
+    },
+    imp::{Config, MethodName, ShardIndex, SkippedMethodConfig},
 };
 use crate::MAX_ARITY;
 use camino::{Utf8Path, Utf8PathBuf};

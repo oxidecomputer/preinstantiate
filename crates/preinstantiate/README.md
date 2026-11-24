@@ -7,8 +7,8 @@ another crate, so that downstream crates don’t have to compile those bodies
 themselves.
 
 In [Omicron](https://github.com/oxidecomputer/omicron), after an edit to a
-`nexus-db-queries` method, rebuilding `omicron-nexus` goes from around 25
-seconds to around 11. (This was measured with Rust 1.99.1 on a computer with
+`nexus-db-queries` method, rebuilding `omicron-nexus` goes from around 33
+seconds to around 13. (This was measured with Rust 1.99.1 on a computer with
 an AMD Ryzen 9 7950X processor running Linux.)
 
 ## Motivation
