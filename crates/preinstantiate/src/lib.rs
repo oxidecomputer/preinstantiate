@@ -50,8 +50,9 @@
 //!
 //! * If you aren't using `preinstantiate`, it is definitely a win. Most people
 //!   aren't.
-//! * If you _are_ using `preinstantiate`, though, you lose roughly half the
-//!   build performance gain from it.
+//! * If you _are_ using `preinstantiate`, though, a fix to `rustc` would make
+//!   life significantly worse for you: as measured here, your incremental build
+//!   times would double!
 //!
 //! In empirical testing against a patched `rustc`, the result is roughly the
 //! same as "In nexus-db-queries" in the build performance chart below. This
@@ -182,8 +183,9 @@
 //! ```
 //!
 //! Note that the `include!` path is relative to `build.rs`, but the crate root
-//! passed to `Config::new` is relative to each shard's own directory. This
-//! works out because every shard crate is at the same depth.
+//! passed to [`Config::new`](build::Config::new) is relative to each shard's
+//! own directory. This works out because every shard crate is at the same
+//! depth.
 //!
 //! `preinstantiate` will do a source analysis to find `pub async` methods
 //! defined on `DataStore` filtered to that shard, and write out a function
@@ -234,7 +236,7 @@
 //! by a source-level analysis. For example, a `pub async fn` whose signature
 //! mentions a non-public type is accepted by the Rust compiler in the upstream
 //! crate, but it can't be referred to within any of the shard crates. To skip
-//! such methods, use `Config::skip_method`:
+//! such methods, use [`Config::skip_method`](build::Config::skip_method):
 //!
 //! ```rust,ignore
 //! Config::new("../../nexus-db-queries/src/lib.rs", shard)
