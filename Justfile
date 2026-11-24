@@ -19,7 +19,7 @@ rustdoc *args:
 
 # Generate README.md files using `cargo-sync-rdme`.
 generate-readmes:
-    cargo sync-rdme --toolchain nightly-2026-04-30 -p preinstantiate
+    cargo sync-rdme --toolchain nightly-2026-11-22 -p preinstantiate --features build
 
 # Collect test coverage
 coverage:
