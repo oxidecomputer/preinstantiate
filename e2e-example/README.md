@@ -33,7 +33,7 @@ flowchart TD
 `e2e-app`'s test runs one of its async functions, which calls methods from
 both shards.
 
-Each shard crate's tests check two things:
+Each shard crate's tests check that:
 
 - The report from the build script matches `tests/output/report.txt`, so you
   can see which methods each shard picked up and which ones it skipped.
@@ -44,3 +44,8 @@ Each shard crate's tests check two things:
 These tests don't show that downstream crates actually reuse the instances
 through share-generics. To check that, you'd need to inspect the symbols in
 the compiled artifacts.
+
+## License
+
+The files in this directory are licensed under [0BSD](LICENSE). You're welcome
+to use this example with or without attribution.
