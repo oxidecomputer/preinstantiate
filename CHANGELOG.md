@@ -3,6 +3,8 @@
 <!-- next-header -->
 ## Unreleased - ReleaseDate
 
+Tweak README.
+
 ## [0.1.1] - 2026-11-24
 
 Replaced the Mermaid build timeline Gantt chart with SVG for better rendering, especially on mobile.
