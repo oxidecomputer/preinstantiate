@@ -126,7 +126,6 @@
 //! The build savings are quite significant, particularly for incremental edit
 //! loops. Some sample timings for adding a line to `DataStore::silo_delete`,
 //! showing an almost 3x improvement:
-//!
 #![cfg_attr(
     feature = "doc-diagrams",
     doc = include_str!("../edit-loop-timeline.svg")
