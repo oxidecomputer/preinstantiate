@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="710" height="330" viewBox="0 0 710 330" style="max-width: 100%; height: auto" role="img" aria-labelledby="edit-loop-timeline-title edit-loop-timeline-desc" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title id="edit-loop-timeline-title">Build timelines after editing a nexus-db-queries method</title>
+  <desc id="edit-loop-timeline-desc">Without preinstantiate, nexus-db-queries builds from 0.6s to 4.1s and omicron-nexus from 4.7s to 33.6s. With code generated in nexus-db-queries, nexus-db-queries builds from 0.8s to 12.6s and omicron-nexus from 10.8s to 22.1s. With shard crates, nexus-db-queries builds from 0.6s to 4.5s, the shards from 3.4s to 7.9s, and omicron-nexus from 5.3s to 12.7s.</desc>
+  <rect width="710" height="330" rx="6" fill="#ffffff"/>
+  <g fill="#f4f4f7">
+    <rect x="6" y="8" width="698" height="84" rx="4"/>
+    <rect x="6" y="96" width="698" height="84" rx="4"/>
+    <rect x="6" y="184" width="698" height="112" rx="4"/>
+  </g>
+  <path stroke="#d8d8de" stroke-width="1" fill="none" d="M165 30V88M165 118V176M165 206V300M240 30V88M240 118V176M240 206V300M315 30V88M315 118V176M315 206V300M390 30V88M390 118V176M390 206V300M465 30V88M465 118V176M465 206V300M540 30V88M540 118V176M540 206V300M615 30V88M615 118V176M615 206V300M690 30V88M690 118V176M690 206V300"/>
+  <g fill="#222222" font-weight="600">
+    <text x="14" y="25">No preinstantiate (33.6s)</text>
+    <text x="14" y="113">In nexus-db-queries (22.2s)</text>
+    <text x="14" y="201">Shard crates (12.7s)</text>
+  </g>
+  <g fill="#333333" text-anchor="end">
+    <text x="155" y="50">nexus-db-queries</text>
+    <text x="155" y="78">omicron-nexus</text>
+    <text x="155" y="138">nexus-db-queries</text>
+    <text x="155" y="166">omicron-nexus</text>
+    <text x="155" y="226">nexus-db-queries</text>
+    <text x="155" y="254">shards</text>
+    <text x="155" y="282">omicron-nexus</text>
+  </g>
+  <g fill="#4a78cf">
+    <rect x="174" y="34" width="53.1" height="22" rx="3"/>
+    <rect x="177" y="122" width="176.25" height="22" rx="3"/>
+    <rect x="174" y="210" width="58.8" height="22" rx="3"/>
+  </g>
+  <g fill="#d99a26">
+    <rect x="216" y="238" width="66.9" height="22" rx="3"/>
+  </g>
+  <g fill="#8458c9">
+    <rect x="235.5" y="62" width="432.9" height="22" rx="3"/>
+    <rect x="327" y="150" width="169.05" height="22" rx="3"/>
+    <rect x="244.5" y="266" width="110.55" height="22" rx="3"/>
+  </g>
+  <line x1="165" y1="300" x2="690" y2="300" stroke="#888888" stroke-width="1"/>
+  <g fill="#555555" text-anchor="middle" font-size="12">
+    <text x="165" y="318">0s</text>
+    <text x="240" y="318">5s</text>
+    <text x="315" y="318">10s</text>
+    <text x="390" y="318">15s</text>
+    <text x="465" y="318">20s</text>
+    <text x="540" y="318">25s</text>
+    <text x="615" y="318">30s</text>
+    <text x="690" y="318">35s</text>
+  </g>
+</svg>

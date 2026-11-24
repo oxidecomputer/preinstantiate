@@ -127,35 +127,7 @@ The build savings are quite significant, particularly for incremental edit
 loops. Some sample timings for adding a line to `DataStore::silo_delete`,
 showing an almost 3x improvement:
 
-````mermaid
----
-config:
-  gantt:
-    leftPadding: 190
-    barHeight: 22
-    barGap: 6
-    fontSize: 13
-    sectionFontSize: 13
-    topPadding: 40
----
-gantt
-    dateFormat x
-    axisFormat %-Ss
-    tickInterval 5second
-
-    section No preinstantiate (33.6s)
-    nexus-db-queries :a1, 600, 4140
-    omicron-nexus    :a2, 4700, 33560
-
-    section In nexus-db-queries (22.2s)
-    nexus-db-queries :b1, 800, 12550
-    omicron-nexus    :b2, 10800, 22070
-
-    section Shard crates (12.7s)
-    nexus-db-queries :c1, 600, 4520
-    shards           :c2, 3400, 7860
-    omicron-nexus    :c3, 5300, 12670
-````
+![Build timelines after editing a nexus-db-queries method](https://raw.githubusercontent.com/oxidecomputer/preinstantiate/main/crates/preinstantiate/edit-loop-timeline.svg)
 
 ## Usage
 

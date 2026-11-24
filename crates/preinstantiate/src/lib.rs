@@ -126,17 +126,14 @@
 //! The build savings are quite significant, particularly for incremental edit
 //! loops. Some sample timings for adding a line to `DataStore::silo_delete`,
 //! showing an almost 3x improvement:
+//!
 #![cfg_attr(
     feature = "doc-diagrams",
-    doc = simple_mermaid::mermaid!("../edit-loop-timeline.mmd")
+    doc = include_str!("../edit-loop-timeline.svg")
 )]
 #![cfg_attr(
     not(feature = "doc-diagrams"),
-    doc = concat!(
-        "```mermaid\n",
-        include_str!("../edit-loop-timeline.mmd"),
-        "```"
-    )
+    doc = "![Build timelines after editing a nexus-db-queries method](https://raw.githubusercontent.com/oxidecomputer/preinstantiate/main/crates/preinstantiate/edit-loop-timeline.svg)"
 )]
 //!
 //! # Usage
