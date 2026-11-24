@@ -126,7 +126,6 @@ flowchart RL
 The build savings are quite significant, particularly for incremental edit
 loops. Some sample timings for adding a line to `DataStore::silo_delete`,
 showing an almost 3x improvement:
-
 ![Build timelines after editing a nexus-db-queries method](https://raw.githubusercontent.com/oxidecomputer/preinstantiate/main/crates/preinstantiate/edit-loop-timeline.svg)
 
 ## Usage
