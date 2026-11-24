@@ -263,5 +263,5 @@ current versions of Rust, share-generics is off in release builds, so
 [rust-lang/rust#143290]: https://github.com/rust-lang/rust/pull/143290
 [explicit template instantiation]: https://stackoverflow.com/questions/2351148/explicit-template-instantiation-when-is-it-used
 [`e2e-example`]: https://github.com/oxidecomputer/preinstantiate/tree/main/e2e-example
-[`MAX_ARITY`]: https://docs.rs/preinstantiate/0.1.0/preinstantiate/constant.MAX_ARITY.html "constant preinstantiate::MAX_ARITY"
+[`MAX_ARITY`]: https://docs.rs/preinstantiate/0.1.1/preinstantiate/constant.MAX_ARITY.html "constant preinstantiate::MAX_ARITY"
 <!-- cargo-sync-rdme ]] -->
